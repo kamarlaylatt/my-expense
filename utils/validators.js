@@ -43,6 +43,7 @@ export const createExpenseSchema = z.object({
   description: z.string().max(500, 'Description must be less than 500 characters').optional(),
   date: z.string().datetime({ offset: true }).or(z.string().regex(/^\d{4}-\d{2}-\d{2}$/)).optional(),
   categoryId: z.number({ required_error: 'Category ID is required', invalid_type_error: 'Category ID must be a number' }).int().positive(),
+  currencyId: z.number({ invalid_type_error: 'Currency ID must be a number' }).int().positive().optional().nullable(),
 });
 
 export const updateExpenseSchema = z.object({
@@ -54,6 +55,23 @@ export const updateExpenseSchema = z.object({
   description: z.string().max(500, 'Description must be less than 500 characters').optional().nullable(),
   date: z.string().datetime({ offset: true }).or(z.string().regex(/^\d{4}-\d{2}-\d{2}$/)).optional(),
   categoryId: z.number({ invalid_type_error: 'Category ID must be a number' }).int().positive().optional(),
+  currencyId: z.number({ invalid_type_error: 'Currency ID must be a number' }).int().positive().optional().nullable(),
+});
+
+// Currency validation schemas
+export const createCurrencySchema = z.object({
+  name: z.string().min(1, 'Name is required').max(50, 'Name must be less than 50 characters'),
+  usdExchangeRate: z
+    .number({ required_error: 'USD exchange rate is required', invalid_type_error: 'USD exchange rate must be a number' })
+    .positive('USD exchange rate must be positive'),
+});
+
+export const updateCurrencySchema = z.object({
+  name: z.string().min(1, 'Name is required').max(50, 'Name must be less than 50 characters').optional(),
+  usdExchangeRate: z
+    .number({ invalid_type_error: 'USD exchange rate must be a number' })
+    .positive('USD exchange rate must be positive')
+    .optional(),
 });
 
 export const validate = (schema) => (req, res, next) => {

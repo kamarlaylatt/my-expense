@@ -3,7 +3,7 @@ import prisma from '../utils/prismaClient.js';
 // Create a new expense
 const createExpense = async (req, res, next) => {
   try {
-    const { amount, description, date, categoryId } = req.body;
+    const { amount, description, date, categoryId, currencyId } = req.body;
     const userId = req.user.id;
 
     // Verify category exists and belongs to user
@@ -21,12 +21,30 @@ const createExpense = async (req, res, next) => {
       });
     }
 
+    // Verify currency exists and belongs to user (if provided)
+    if (currencyId) {
+      const currency = await prisma.currency.findFirst({
+        where: {
+          id: currencyId,
+          userId,
+        },
+      });
+
+      if (!currency) {
+        return res.status(404).json({
+          success: false,
+          message: 'Currency not found',
+        });
+      }
+    }
+
     const expense = await prisma.expense.create({
       data: {
         amount,
         description,
         date: date ? new Date(date) : new Date(),
         categoryId,
+        currencyId: currencyId || null,
         userId,
       },
       include: {
@@ -35,6 +53,13 @@ const createExpense = async (req, res, next) => {
             id: true,
             name: true,
             color: true,
+          },
+        },
+        currency: {
+          select: {
+            id: true,
+            name: true,
+            usdExchangeRate: true,
           },
         },
       },
@@ -85,6 +110,13 @@ const getExpenses = async (req, res, next) => {
               color: true,
             },
           },
+          currency: {
+            select: {
+              id: true,
+              name: true,
+              usdExchangeRate: true,
+            },
+          },
         },
         orderBy: { date: 'desc' },
         skip,
@@ -129,6 +161,13 @@ const getExpenseById = async (req, res, next) => {
             color: true,
           },
         },
+        currency: {
+          select: {
+            id: true,
+            name: true,
+            usdExchangeRate: true,
+          },
+        },
       },
     });
 
@@ -152,7 +191,7 @@ const getExpenseById = async (req, res, next) => {
 const updateExpense = async (req, res, next) => {
   try {
     const { id } = req.params;
-    const { amount, description, date, categoryId } = req.body;
+    const { amount, description, date, categoryId, currencyId } = req.body;
     const userId = req.user.id;
 
     // Check if expense exists and belongs to user
@@ -187,6 +226,23 @@ const updateExpense = async (req, res, next) => {
       }
     }
 
+    // If currencyId is being updated, verify it exists and belongs to user
+    if (currencyId !== undefined && currencyId !== null && currencyId !== existingExpense.currencyId) {
+      const currency = await prisma.currency.findFirst({
+        where: {
+          id: currencyId,
+          userId,
+        },
+      });
+
+      if (!currency) {
+        return res.status(404).json({
+          success: false,
+          message: 'Currency not found',
+        });
+      }
+    }
+
     const expense = await prisma.expense.update({
       where: { id: parseInt(id) },
       data: {
@@ -194,6 +250,7 @@ const updateExpense = async (req, res, next) => {
         ...(description !== undefined && { description }),
         ...(date && { date: new Date(date) }),
         ...(categoryId && { categoryId }),
+        ...(currencyId !== undefined && { currencyId: currencyId }),
       },
       include: {
         category: {
@@ -201,6 +258,13 @@ const updateExpense = async (req, res, next) => {
             id: true,
             name: true,
             color: true,
+          },
+        },
+        currency: {
+          select: {
+            id: true,
+            name: true,
+            usdExchangeRate: true,
           },
         },
       },
