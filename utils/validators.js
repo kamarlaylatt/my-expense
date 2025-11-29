@@ -43,7 +43,7 @@ export const createExpenseSchema = z.object({
   description: z.string().max(500, 'Description must be less than 500 characters').optional(),
   date: z.string().datetime({ offset: true }).or(z.string().regex(/^\d{4}-\d{2}-\d{2}$/)).optional(),
   categoryId: z.number({ required_error: 'Category ID is required', invalid_type_error: 'Category ID must be a number' }).int().positive(),
-  currencyId: z.number({ invalid_type_error: 'Currency ID must be a number' }).int().positive().optional().nullable(),
+  currencyId: z.number({ required_error: 'Currency ID is required', invalid_type_error: 'Currency ID must be a number' }).int().positive(),
 });
 
 export const updateExpenseSchema = z.object({

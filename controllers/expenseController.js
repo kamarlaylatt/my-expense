@@ -21,21 +21,19 @@ const createExpense = async (req, res, next) => {
       });
     }
 
-    // Verify currency exists and belongs to user (if provided)
-    if (currencyId) {
-      const currency = await prisma.currency.findFirst({
-        where: {
-          id: currencyId,
-          userId,
-        },
-      });
+    // Verify currency exists and belongs to user
+    const currency = await prisma.currency.findFirst({
+      where: {
+        id: currencyId,
+        userId,
+      },
+    });
 
-      if (!currency) {
-        return res.status(404).json({
-          success: false,
-          message: 'Currency not found',
-        });
-      }
+    if (!currency) {
+      return res.status(404).json({
+        success: false,
+        message: 'Currency not found',
+      });
     }
 
     const expense = await prisma.expense.create({
@@ -44,7 +42,7 @@ const createExpense = async (req, res, next) => {
         description,
         date: date ? new Date(date) : new Date(),
         categoryId,
-        currencyId: currencyId || null,
+        currencyId,
         userId,
       },
       include: {
