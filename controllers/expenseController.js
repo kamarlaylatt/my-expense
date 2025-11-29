@@ -353,13 +353,13 @@ const getExpenseSummary = async (req, res, next) => {
       }
     }
 
-    const [totalExpenses, expensesByCategory, expensesByCurrency] = await Promise.all([
+    const [totalExpenses, expensesByCategoryAndCurrency, expensesByCurrency] = await Promise.all([
       prisma.expense.aggregate({
         where,
         _count: true,
       }),
       prisma.expense.groupBy({
-        by: ['categoryId'],
+        by: ['categoryId', 'currencyId'],
         where,
         _sum: { amount: true },
         _count: true,
@@ -373,7 +373,7 @@ const getExpenseSummary = async (req, res, next) => {
     ]);
 
     // Get category details for the summary
-    const categoryIds = expensesByCategory.map((e) => e.categoryId);
+    const categoryIds = [...new Set(expensesByCategoryAndCurrency.map((e) => e.categoryId))];
     const categories = await prisma.category.findMany({
       where: { id: { in: categoryIds } },
       select: { id: true, name: true, color: true },
@@ -385,7 +385,7 @@ const getExpenseSummary = async (req, res, next) => {
     }, {});
 
     // Get currency details for the summary
-    const currencyIds = expensesByCurrency.map((e) => e.currencyId);
+    const currencyIds = [...new Set(expensesByCategoryAndCurrency.map((e) => e.currencyId))];
     const currencies = await prisma.currency.findMany({
       where: { id: { in: currencyIds } },
       select: { id: true, name: true, usdExchangeRate: true },
@@ -396,6 +396,25 @@ const getExpenseSummary = async (req, res, next) => {
       return acc;
     }, {});
 
+    // Group expenses by category, with currency breakdown for each
+    const categoryTotalsMap = {};
+    expensesByCategoryAndCurrency.forEach((e) => {
+      const categoryId = e.categoryId;
+      if (!categoryTotalsMap[categoryId]) {
+        categoryTotalsMap[categoryId] = {
+          category: categoryMap[categoryId],
+          totalCount: 0,
+          byCurrency: [],
+        };
+      }
+      categoryTotalsMap[categoryId].totalCount += e._count;
+      categoryTotalsMap[categoryId].byCurrency.push({
+        currency: currencyMap[e.currencyId],
+        totalAmount: e._sum.amount,
+        count: e._count,
+      });
+    });
+
     const summary = {
       totalCount: totalExpenses._count,
       totalsByCurrency: expensesByCurrency.map((e) => ({
@@ -403,11 +422,7 @@ const getExpenseSummary = async (req, res, next) => {
         totalAmount: e._sum.amount,
         count: e._count,
       })),
-      totalByCategory: expensesByCategory.map((e) => ({
-        category: categoryMap[e.categoryId],
-        totalAmount: e._sum.amount,
-        count: e._count,
-      })),
+      totalByCategory: Object.values(categoryTotalsMap),
     };
 
     res.status(200).json({
