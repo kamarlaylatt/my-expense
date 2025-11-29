@@ -163,6 +163,20 @@ const deleteCurrency = async (req, res, next) => {
       });
     }
 
+    // Check if any expenses are using this currency
+    const expenseCount = await prisma.expense.count({
+      where: {
+        currencyId: parseInt(id),
+      },
+    });
+
+    if (expenseCount > 0) {
+      return res.status(400).json({
+        success: false,
+        message: `Cannot delete currency. It is being used by ${expenseCount} expense(s).`,
+      });
+    }
+
     await prisma.currency.delete({
       where: { id: parseInt(id) },
     });

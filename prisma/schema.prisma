@@ -59,7 +59,7 @@ model Expense {
   categoryId  Int
   category    Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
   currencyId  Int
-  currency    Currency @relation(fields: [currencyId], references: [id], onDelete: Cascade)
+  currency    Currency @relation(fields: [currencyId], references: [id], onDelete: Restrict)
   userId      Int
   user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   createdAt   DateTime @default(now())
