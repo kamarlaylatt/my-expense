@@ -97,7 +97,7 @@ const getExpenses = async (req, res, next) => {
 
     const skip = (parseInt(page) - 1) * parseInt(limit);
 
-    const [expenses, total] = await Promise.all([
+    const [expenses, total, totalsByCurrency] = await Promise.all([
       prisma.expense.findMany({
         where,
         include: {
@@ -121,12 +121,35 @@ const getExpenses = async (req, res, next) => {
         take: parseInt(limit),
       }),
       prisma.expense.count({ where }),
+      prisma.expense.groupBy({
+        by: ['currencyId'],
+        where,
+        _sum: { amount: true },
+      }),
     ]);
+
+    // Get currency details for totals
+    const currencyIds = totalsByCurrency.map((t) => t.currencyId);
+    const currencies = await prisma.currency.findMany({
+      where: { id: { in: currencyIds } },
+      select: { id: true, name: true, usdExchangeRate: true },
+    });
+
+    const currencyMap = currencies.reduce((acc, curr) => {
+      acc[curr.id] = curr;
+      return acc;
+    }, {});
+
+    const totalsByCurrencyFormatted = totalsByCurrency.map((t) => ({
+      currency: currencyMap[t.currencyId],
+      totalAmount: t._sum.amount,
+    }));
 
     res.status(200).json({
       success: true,
       data: {
         expenses,
+        totalsByCurrency: totalsByCurrencyFormatted,
         pagination: {
           page: parseInt(page),
           limit: parseInt(limit),
@@ -330,14 +353,19 @@ const getExpenseSummary = async (req, res, next) => {
       }
     }
 
-    const [totalExpenses, expensesByCategory] = await Promise.all([
+    const [totalExpenses, expensesByCategory, expensesByCurrency] = await Promise.all([
       prisma.expense.aggregate({
+        where,
+        _count: true,
+      }),
+      prisma.expense.groupBy({
+        by: ['categoryId'],
         where,
         _sum: { amount: true },
         _count: true,
       }),
       prisma.expense.groupBy({
-        by: ['categoryId'],
+        by: ['currencyId'],
         where,
         _sum: { amount: true },
         _count: true,
@@ -356,10 +384,26 @@ const getExpenseSummary = async (req, res, next) => {
       return acc;
     }, {});
 
+    // Get currency details for the summary
+    const currencyIds = expensesByCurrency.map((e) => e.currencyId);
+    const currencies = await prisma.currency.findMany({
+      where: { id: { in: currencyIds } },
+      select: { id: true, name: true, usdExchangeRate: true },
+    });
+
+    const currencyMap = currencies.reduce((acc, curr) => {
+      acc[curr.id] = curr;
+      return acc;
+    }, {});
+
     const summary = {
-      totalAmount: totalExpenses._sum.amount || 0,
       totalCount: totalExpenses._count,
-      byCategory: expensesByCategory.map((e) => ({
+      totalsByCurrency: expensesByCurrency.map((e) => ({
+        currency: currencyMap[e.currencyId],
+        totalAmount: e._sum.amount,
+        count: e._count,
+      })),
+      totalByCategory: expensesByCategory.map((e) => ({
         category: categoryMap[e.categoryId],
         totalAmount: e._sum.amount,
         count: e._count,
