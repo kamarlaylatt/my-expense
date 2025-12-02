@@ -88,7 +88,9 @@ const getExpenses = async (req, res, next) => {
     if (startDate || endDate) {
       where.date = {};
       if (startDate) {
-        where.date.gte = new Date(startDate);
+        const startDateTime = new Date(startDate);
+        startDateTime.setHours(0, 0, 0, 0);
+        where.date.gte = startDateTime;
       }
       if (endDate) {
         const endDateTime = new Date(endDate);
@@ -348,7 +350,9 @@ const getExpenseSummary = async (req, res, next) => {
     if (startDate || endDate) {
       where.date = {};
       if (startDate) {
-        where.date.gte = new Date(startDate);
+        const startDateTime = new Date(startDate);
+        startDateTime.setHours(0, 0, 0, 0);
+        where.date.gte = startDateTime;
       }
       if (endDate) {
         const endDateTime = new Date(endDate);
