@@ -121,4 +121,93 @@ const getProfile = async (req, res, next) => {
   }
 };
 
-export { signup, signin, getProfile };
+const googleCallback = async (req, res, next) => {
+  try {
+    const { email, name, providerAccountId, provider, image } = req.body;
+
+    if (!email || !providerAccountId || !provider) {
+      return res.status(400).json({
+        success: false,
+        message: 'Missing required fields: email, providerAccountId, provider',
+      });
+    }
+
+    // Check if user exists with this provider account
+    let user = await prisma.user.findFirst({
+      where: {
+        provider,
+        providerAccountId,
+      },
+    });
+
+    // If not found, check if user exists with this email
+    if (!user) {
+      user = await prisma.user.findUnique({
+        where: { email },
+      });
+
+      // If email exists, link the Google account to the existing user
+      if (user) {
+        user = await prisma.user.update({
+          where: { id: user.id },
+          data: {
+            provider,
+            providerAccountId,
+            emailVerified: true,
+            image: image || user.image,
+          },
+          select: {
+            id: true,
+            email: true,
+            name: true,
+            provider: true,
+            providerAccountId: true,
+            emailVerified: true,
+            image: true,
+            createdAt: true,
+            updatedAt: true,
+          },
+        });
+      } else {
+        // Create new user
+        user = await prisma.user.create({
+          data: {
+            email,
+            name: name || email.split('@')[0],
+            provider,
+            providerAccountId,
+            emailVerified: true,
+            image,
+          },
+          select: {
+            id: true,
+            email: true,
+            name: true,
+            provider: true,
+            providerAccountId: true,
+            emailVerified: true,
+            image: true,
+            createdAt: true,
+            updatedAt: true,
+          },
+        });
+      }
+    }
+
+    // Generate JWT token
+    const token = generateToken(user.id);
+
+    res.status(200).json({
+      success: true,
+      message: 'Google authentication successful',
+      data: {
+        user,
+        token,
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export { signup, signin, getProfile, googleCallback };

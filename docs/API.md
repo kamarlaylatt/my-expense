@@ -198,6 +198,78 @@ curl -X POST http://localhost:3000/api/auth/signin \
 
 ---
 
+#### Google Login
+
+Authenticate using Google OAuth. This endpoint expects the frontend to handle the OAuth flow and send the user data and provider credentials.
+
+**Endpoint:** `POST /auth/google`
+
+**Authentication:** Not required
+
+**Request Body:**
+
+| Field             | Type   | Required | Description                          |
+| ----------------- | ------ | -------- | ------------------------------------ |
+| email             | string | Yes      | User's email from Google             |
+| name              | string | No       | User's display name from Google      |
+| providerAccountId | string | Yes      | Google's unique user ID (from OAuth) |
+| provider          | string | Yes      | OAuth provider name (e.g., "google") |
+| image             | string | No       | Google profile picture URL           |
+
+**Example Request:**
+
+```bash
+curl -X POST http://localhost:3000/api/auth/google \
+  -H "Content-Type: application/json" \
+  -d '{
+    "email": "john@gmail.com",
+    "name": "John Doe",
+    "providerAccountId": "118364933200870915143",
+    "provider": "google",
+    "image": "https://lh3.googleusercontent.com/a/default-user"
+  }'
+```
+
+**Example Response (200 OK):**
+
+```json
+{
+  "success": true,
+  "message": "Google authentication successful",
+  "data": {
+    "user": {
+      "id": 2,
+      "email": "john@gmail.com",
+      "name": "John Doe",
+      "provider": "google",
+      "providerAccountId": "118364933200870915143",
+      "emailVerified": true,
+      "image": "https://lh3.googleusercontent.com/a/default-user",
+      "createdAt": "2025-12-06T10:00:00.000Z",
+      "updatedAt": "2025-12-06T10:00:00.000Z"
+    },
+    "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+  }
+}
+```
+
+**Error Response (400 Bad Request):**
+
+```json
+{
+  "success": false,
+  "message": "Missing required fields: email, providerAccountId, provider",
+  "errors": [
+    {
+      "field": "providerAccountId",
+      "message": "Provider account ID is required"
+    }
+  ]
+}
+```
+
+---
+
 #### Get Profile
 
 Get the authenticated user's profile.

@@ -158,6 +158,68 @@
           ]
         },
         {
+          "name": "Google Login",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"user@gmail.com\",\n  \"name\": \"John Doe\",\n  \"providerAccountId\": \"118364933200870915143\",\n  \"provider\": \"google\",\n  \"image\": \"https://lh3.googleusercontent.com/a/default-user\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/google",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "google"]
+            },
+            "description": "Authenticate using Google OAuth.\n\n**Required fields:**\n- `email`: User's email from Google\n- `providerAccountId`: Google's unique user ID\n- `provider`: OAuth provider name (e.g., \"google\")\n\n**Optional fields:**\n- `name`: User's display name from Google\n- `image`: Google profile picture URL"
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    const response = pm.response.json();",
+                  "    if (response.data && response.data.token) {",
+                  "        pm.collectionVariables.set('token', response.data.token);",
+                  "        console.log('Token saved to collection variables');",
+                  "    }",
+                  "}",
+                  "",
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Response has success flag', function () {",
+                  "    const response = pm.response.json();",
+                  "    pm.expect(response.success).to.be.true;",
+                  "});",
+                  "",
+                  "pm.test('Response contains user and token', function () {",
+                  "    const response = pm.response.json();",
+                  "    pm.expect(response.data).to.have.property('user');",
+                  "    pm.expect(response.data).to.have.property('token');",
+                  "    pm.expect(response.data.user).to.have.property('provider');",
+                  "    pm.expect(response.data.user).to.have.property('providerAccountId');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
           "name": "Get Profile",
           "request": {
             "method": "GET",

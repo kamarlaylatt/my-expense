@@ -14,6 +14,15 @@ export const signinSchema = z.object({
   password: z.string().min(1, 'Password is required'),
 });
 
+// Google OAuth validation schema
+export const googleAuthSchema = z.object({
+  email: z.string().email('Invalid email format'),
+  name: z.string().max(100, 'Name must be less than 100 characters').optional(),
+  providerAccountId: z.string().min(1, 'Provider account ID is required'),
+  provider: z.string().min(1, 'Provider is required'),
+  image: z.string().url('Image must be a valid URL').optional(),
+});
+
 // Category validation schemas
 export const createCategorySchema = z.object({
   name: z.string().min(1, 'Name is required').max(100, 'Name must be less than 100 characters'),
