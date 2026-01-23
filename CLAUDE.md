@@ -74,6 +74,8 @@ All responses follow consistent structure:
 
 **Historical exchange rates**: Each expense stores its own `usdExchangeRate` at creation time. This preserves historical accuracy when currency rates change. When creating an expense, the rate defaults to the currency's current rate but can be overridden. When updating an expense and changing `currencyId`, the rate defaults to the new currency's current rate unless explicitly provided.
 
+**USD total calculations**: The `GET /expenses` and `GET /expenses/summary` endpoints return `totalUSDAmount` fields. These are calculated by converting each expense's amount to USD using its **historical** `usdExchangeRate` (not the currency's current rate). Formula: `amount ÷ usdExchangeRate`. To avoid N+1 queries, all expense data for totals is fetched in a single query and calculated in-memory.
+
 **Cascading deletes**: Deleting a category or currency deletes all associated expenses. Currency deletion is restricted if expenses exist.
 
 ## Environment Variables
