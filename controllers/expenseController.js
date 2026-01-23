@@ -115,36 +115,46 @@ const getExpenses = async (req, res, next) => {
 
     const skip = (parseInt(page) - 1) * parseInt(limit);
 
-    const [expenses, total, totalsByCurrency] = await Promise.all([
-      prisma.expense.findMany({
-        where,
-        include: {
-          category: {
-            select: {
-              id: true,
-              name: true,
-              color: true,
+    const [expenses, total, totalsByCurrency, allExpensesForTotals] =
+      await Promise.all([
+        prisma.expense.findMany({
+          where,
+          include: {
+            category: {
+              select: {
+                id: true,
+                name: true,
+                color: true,
+              },
+            },
+            currency: {
+              select: {
+                id: true,
+                name: true,
+                usdExchangeRate: true,
+              },
             },
           },
-          currency: {
-            select: {
-              id: true,
-              name: true,
-              usdExchangeRate: true,
-            },
+          orderBy: { date: "desc" },
+          skip,
+          take: parseInt(limit),
+        }),
+        prisma.expense.count({ where }),
+        prisma.expense.groupBy({
+          by: ["currencyId"],
+          where,
+          _sum: { amount: true },
+        }),
+        // Fetch all expenses (with pagination filters) for USD total calculation
+        prisma.expense.findMany({
+          where,
+          select: {
+            currencyId: true,
+            amount: true,
+            usdExchangeRate: true,
           },
-        },
-        orderBy: { date: "desc" },
-        skip,
-        take: parseInt(limit),
-      }),
-      prisma.expense.count({ where }),
-      prisma.expense.groupBy({
-        by: ["currencyId"],
-        where,
-        _sum: { amount: true },
-      }),
-    ]);
+        }),
+      ]);
 
     // Get currency details for totals
     const currencyIds = totalsByCurrency.map((t) => t.currencyId);
@@ -158,10 +168,24 @@ const getExpenses = async (req, res, next) => {
       return acc;
     }, {});
 
-    const totalsByCurrencyFormatted = totalsByCurrency.map((t) => ({
-      currency: currencyMap[t.currencyId],
-      totalAmount: t._sum.amount,
-    }));
+    // Calculate USD total for each currency using each expense's historical rate (in-memory)
+    const totalsByCurrencyFormatted = totalsByCurrency.map((t) => {
+      const expensesForCurrency = allExpensesForTotals.filter(
+        (e) => e.currencyId === t.currencyId,
+      );
+
+      const totalUSDAmount = expensesForCurrency.reduce(
+        (sum, expense) =>
+          sum + Number(expense.amount) / Number(expense.usdExchangeRate),
+        0,
+      );
+
+      return {
+        currency: currencyMap[t.currencyId],
+        totalAmount: t._sum.amount,
+        totalUSDAmount: totalUSDAmount.toFixed(2),
+      };
+    });
 
     res.status(200).json({
       success: true,
@@ -393,25 +417,39 @@ const getExpenseSummary = async (req, res, next) => {
       }
     }
 
-    const [totalExpenses, expensesByCategoryAndCurrency, expensesByCurrency] =
-      await Promise.all([
-        prisma.expense.aggregate({
-          where,
-          _count: true,
-        }),
-        prisma.expense.groupBy({
-          by: ["categoryId", "currencyId"],
-          where,
-          _sum: { amount: true },
-          _count: true,
-        }),
-        prisma.expense.groupBy({
-          by: ["currencyId"],
-          where,
-          _sum: { amount: true },
-          _count: true,
-        }),
-      ]);
+    const [
+      totalExpenses,
+      expensesByCategoryAndCurrency,
+      expensesByCurrency,
+      allExpensesForTotals,
+    ] = await Promise.all([
+      prisma.expense.aggregate({
+        where,
+        _count: true,
+      }),
+      prisma.expense.groupBy({
+        by: ["categoryId", "currencyId"],
+        where,
+        _sum: { amount: true },
+        _count: true,
+      }),
+      prisma.expense.groupBy({
+        by: ["currencyId"],
+        where,
+        _sum: { amount: true },
+        _count: true,
+      }),
+      // Fetch all expenses for USD total calculation (single query)
+      prisma.expense.findMany({
+        where,
+        select: {
+          categoryId: true,
+          currencyId: true,
+          amount: true,
+          usdExchangeRate: true,
+        },
+      }),
+    ]);
 
     // Get category details for the summary
     const categoryIds = [
@@ -441,9 +479,9 @@ const getExpenseSummary = async (req, res, next) => {
       return acc;
     }, {});
 
-    // Group expenses by category, with currency breakdown for each
+    // Group expenses by category, with currency breakdown for each (in-memory calculation)
     const categoryTotalsMap = {};
-    expensesByCategoryAndCurrency.forEach((e) => {
+    for (const e of expensesByCategoryAndCurrency) {
       const categoryId = e.categoryId;
       if (!categoryTotalsMap[categoryId]) {
         categoryTotalsMap[categoryId] = {
@@ -453,20 +491,50 @@ const getExpenseSummary = async (req, res, next) => {
         };
       }
       categoryTotalsMap[categoryId].totalCount += e._count;
+
+      // Filter expenses for this category and currency (in-memory)
+      const expensesForCategoryAndCurrency = allExpensesForTotals.filter(
+        (exp) =>
+          exp.categoryId === e.categoryId && exp.currencyId === e.currencyId,
+      );
+
+      const totalUSDAmount = expensesForCategoryAndCurrency.reduce(
+        (sum, expense) =>
+          sum + Number(expense.amount) / Number(expense.usdExchangeRate),
+        0,
+      );
+
       categoryTotalsMap[categoryId].byCurrency.push({
         currency: currencyMap[e.currencyId],
         totalAmount: e._sum.amount,
+        totalUSDAmount: totalUSDAmount.toFixed(2),
         count: e._count,
       });
+    }
+
+    // Calculate USD total for each currency using historical rates (in-memory)
+    const totalsByCurrency = expensesByCurrency.map((e) => {
+      const expensesForCurrency = allExpensesForTotals.filter(
+        (exp) => exp.currencyId === e.currencyId,
+      );
+
+      const totalUSDAmount = expensesForCurrency.reduce(
+        (sum, expense) =>
+          sum + Number(expense.amount) / Number(expense.usdExchangeRate),
+        0,
+      );
+
+      return {
+        currency: currencyMap[e.currencyId],
+        totalAmount: e._sum.amount,
+        totalUSDAmount: totalUSDAmount.toFixed(2),
+        count: e._count,
+      };
     });
 
     const summary = {
       totalCount: totalExpenses._count,
-      totalsByCurrency: expensesByCurrency.map((e) => ({
-        currency: currencyMap[e.currencyId],
-        totalAmount: e._sum.amount,
-        count: e._count,
-      })),
+      totalsByCurrency: totalsByCurrency,
       totalByCategory: Object.values(categoryTotalsMap),
     };
 

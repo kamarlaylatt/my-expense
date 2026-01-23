@@ -838,7 +838,8 @@ curl -X GET "http://localhost:3000/api/expenses?page=1&limit=10&categoryId=1&sta
           "name": "USD",
           "usdExchangeRate": "1.00000000"
         },
-        "totalAmount": "150.75"
+        "totalAmount": "150.75",
+        "totalUSDAmount": "150.75"
       },
       {
         "currency": {
@@ -846,7 +847,8 @@ curl -X GET "http://localhost:3000/api/expenses?page=1&limit=10&categoryId=1&sta
           "name": "EUR",
           "usdExchangeRate": "1.08500000"
         },
-        "totalAmount": "45.00"
+        "totalAmount": "45.00",
+        "totalUSDAmount": "41.47"
       }
     ],
     "pagination": {
@@ -1006,6 +1008,9 @@ Get aggregated expense statistics.
 | startDate | string | No       | Filter expenses from this date  |
 | endDate   | string | No       | Filter expenses until this date |
 
+> **Note:** The `totalUSDAmount` field is calculated by converting each expense's amount to USD using its **historical** `usdExchangeRate` (stored at the time of expense creation). This ensures accurate USD totals even when exchange rates change over time.
+> **Formula:** `totalUSDAmount = Σ(expense.amount ÷ expense.usdExchangeRate)`
+
 **Example Request:**
 
 ```bash
@@ -1029,6 +1034,7 @@ curl -X GET "http://localhost:3000/api/expenses/summary?startDate=2025-11-01&end
             "usdExchangeRate": "1.00000000"
           },
           "totalAmount": "1250.75",
+          "totalUSDAmount": "1250.75",
           "count": 20
         },
         {
@@ -1038,6 +1044,7 @@ curl -X GET "http://localhost:3000/api/expenses/summary?startDate=2025-11-01&end
             "usdExchangeRate": "1.08500000"
           },
           "totalAmount": "340.00",
+          "totalUSDAmount": "313.36",
           "count": 5
         }
       ],
@@ -1057,6 +1064,7 @@ curl -X GET "http://localhost:3000/api/expenses/summary?startDate=2025-11-01&end
                 "usdExchangeRate": "1.00000000"
               },
               "totalAmount": "350.50",
+              "totalUSDAmount": "350.50",
               "count": 10
             },
             {
@@ -1066,6 +1074,7 @@ curl -X GET "http://localhost:3000/api/expenses/summary?startDate=2025-11-01&end
                 "usdExchangeRate": "1.08500000"
               },
               "totalAmount": "100.00",
+              "totalUSDAmount": "92.17",
               "count": 2
             }
           ]
@@ -1085,6 +1094,7 @@ curl -X GET "http://localhost:3000/api/expenses/summary?startDate=2025-11-01&end
                 "usdExchangeRate": "1.00000000"
               },
               "totalAmount": "200.25",
+              "totalUSDAmount": "200.25",
               "count": 8
             }
           ]
@@ -1104,6 +1114,7 @@ curl -X GET "http://localhost:3000/api/expenses/summary?startDate=2025-11-01&end
                 "usdExchangeRate": "1.00000000"
               },
               "totalAmount": "700.00",
+              "totalUSDAmount": "700.00",
               "count": 2
             },
             {
@@ -1113,6 +1124,7 @@ curl -X GET "http://localhost:3000/api/expenses/summary?startDate=2025-11-01&end
                 "usdExchangeRate": "1.08500000"
               },
               "totalAmount": "240.00",
+              "totalUSDAmount": "221.20",
               "count": 3
             }
           ]
