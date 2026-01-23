@@ -1,9 +1,16 @@
-import prisma from '../utils/prismaClient.js';
+import prisma from "../utils/prismaClient.js";
 
 // Create a new expense
 const createExpense = async (req, res, next) => {
   try {
-    const { amount, description, date, categoryId, currencyId } = req.body;
+    const {
+      amount,
+      description,
+      date,
+      categoryId,
+      currencyId,
+      usdExchangeRate,
+    } = req.body;
     const userId = req.user.id;
 
     // Verify category exists and belongs to user
@@ -17,7 +24,7 @@ const createExpense = async (req, res, next) => {
     if (!category) {
       return res.status(404).json({
         success: false,
-        message: 'Category not found',
+        message: "Category not found",
       });
     }
 
@@ -32,13 +39,20 @@ const createExpense = async (req, res, next) => {
     if (!currency) {
       return res.status(404).json({
         success: false,
-        message: 'Currency not found',
+        message: "Currency not found",
       });
     }
+
+    // Use provided usdExchangeRate or default to currency's current rate
+    const exchangeRate =
+      usdExchangeRate !== undefined
+        ? usdExchangeRate
+        : currency.usdExchangeRate;
 
     const expense = await prisma.expense.create({
       data: {
         amount,
+        usdExchangeRate: exchangeRate,
         description,
         date: date ? new Date(date) : new Date(),
         categoryId,
@@ -65,7 +79,7 @@ const createExpense = async (req, res, next) => {
 
     res.status(201).json({
       success: true,
-      message: 'Expense created successfully',
+      message: "Expense created successfully",
       data: { expense },
     });
   } catch (error) {
@@ -120,13 +134,13 @@ const getExpenses = async (req, res, next) => {
             },
           },
         },
-        orderBy: { date: 'desc' },
+        orderBy: { date: "desc" },
         skip,
         take: parseInt(limit),
       }),
       prisma.expense.count({ where }),
       prisma.expense.groupBy({
-        by: ['currencyId'],
+        by: ["currencyId"],
         where,
         _sum: { amount: true },
       }),
@@ -199,7 +213,7 @@ const getExpenseById = async (req, res, next) => {
     if (!expense) {
       return res.status(404).json({
         success: false,
-        message: 'Expense not found',
+        message: "Expense not found",
       });
     }
 
@@ -216,7 +230,14 @@ const getExpenseById = async (req, res, next) => {
 const updateExpense = async (req, res, next) => {
   try {
     const { id } = req.params;
-    const { amount, description, date, categoryId, currencyId } = req.body;
+    const {
+      amount,
+      description,
+      date,
+      categoryId,
+      currencyId,
+      usdExchangeRate,
+    } = req.body;
     const userId = req.user.id;
 
     // Check if expense exists and belongs to user
@@ -230,7 +251,7 @@ const updateExpense = async (req, res, next) => {
     if (!existingExpense) {
       return res.status(404).json({
         success: false,
-        message: 'Expense not found',
+        message: "Expense not found",
       });
     }
 
@@ -246,13 +267,18 @@ const updateExpense = async (req, res, next) => {
       if (!category) {
         return res.status(404).json({
           success: false,
-          message: 'Category not found',
+          message: "Category not found",
         });
       }
     }
 
     // If currencyId is being updated, verify it exists and belongs to user
-    if (currencyId !== undefined && currencyId !== null && currencyId !== existingExpense.currencyId) {
+    let newExchangeRate = usdExchangeRate;
+    if (
+      currencyId !== undefined &&
+      currencyId !== null &&
+      currencyId !== existingExpense.currencyId
+    ) {
       const currency = await prisma.currency.findFirst({
         where: {
           id: currencyId,
@@ -263,8 +289,13 @@ const updateExpense = async (req, res, next) => {
       if (!currency) {
         return res.status(404).json({
           success: false,
-          message: 'Currency not found',
+          message: "Currency not found",
         });
+      }
+
+      // If usdExchangeRate is not provided, default to the new currency's current rate
+      if (usdExchangeRate === undefined) {
+        newExchangeRate = currency.usdExchangeRate;
       }
     }
 
@@ -272,6 +303,7 @@ const updateExpense = async (req, res, next) => {
       where: { id: parseInt(id) },
       data: {
         ...(amount !== undefined && { amount }),
+        ...(usdExchangeRate !== undefined && { usdExchangeRate }),
         ...(description !== undefined && { description }),
         ...(date && { date: new Date(date) }),
         ...(categoryId && { categoryId }),
@@ -297,7 +329,7 @@ const updateExpense = async (req, res, next) => {
 
     res.status(200).json({
       success: true,
-      message: 'Expense updated successfully',
+      message: "Expense updated successfully",
       data: { expense },
     });
   } catch (error) {
@@ -322,7 +354,7 @@ const deleteExpense = async (req, res, next) => {
     if (!existingExpense) {
       return res.status(404).json({
         success: false,
-        message: 'Expense not found',
+        message: "Expense not found",
       });
     }
 
@@ -332,7 +364,7 @@ const deleteExpense = async (req, res, next) => {
 
     res.status(200).json({
       success: true,
-      message: 'Expense deleted successfully',
+      message: "Expense deleted successfully",
     });
   } catch (error) {
     next(error);
@@ -361,27 +393,30 @@ const getExpenseSummary = async (req, res, next) => {
       }
     }
 
-    const [totalExpenses, expensesByCategoryAndCurrency, expensesByCurrency] = await Promise.all([
-      prisma.expense.aggregate({
-        where,
-        _count: true,
-      }),
-      prisma.expense.groupBy({
-        by: ['categoryId', 'currencyId'],
-        where,
-        _sum: { amount: true },
-        _count: true,
-      }),
-      prisma.expense.groupBy({
-        by: ['currencyId'],
-        where,
-        _sum: { amount: true },
-        _count: true,
-      }),
-    ]);
+    const [totalExpenses, expensesByCategoryAndCurrency, expensesByCurrency] =
+      await Promise.all([
+        prisma.expense.aggregate({
+          where,
+          _count: true,
+        }),
+        prisma.expense.groupBy({
+          by: ["categoryId", "currencyId"],
+          where,
+          _sum: { amount: true },
+          _count: true,
+        }),
+        prisma.expense.groupBy({
+          by: ["currencyId"],
+          where,
+          _sum: { amount: true },
+          _count: true,
+        }),
+      ]);
 
     // Get category details for the summary
-    const categoryIds = [...new Set(expensesByCategoryAndCurrency.map((e) => e.categoryId))];
+    const categoryIds = [
+      ...new Set(expensesByCategoryAndCurrency.map((e) => e.categoryId)),
+    ];
     const categories = await prisma.category.findMany({
       where: { id: { in: categoryIds } },
       select: { id: true, name: true, color: true },
@@ -393,7 +428,9 @@ const getExpenseSummary = async (req, res, next) => {
     }, {});
 
     // Get currency details for the summary
-    const currencyIds = [...new Set(expensesByCategoryAndCurrency.map((e) => e.currencyId))];
+    const currencyIds = [
+      ...new Set(expensesByCategoryAndCurrency.map((e) => e.currencyId)),
+    ];
     const currencies = await prisma.currency.findMany({
       where: { id: { in: currencyIds } },
       select: { id: true, name: true, usdExchangeRate: true },
@@ -442,4 +479,11 @@ const getExpenseSummary = async (req, res, next) => {
   }
 };
 
-export { createExpense, getExpenses, getExpenseById, updateExpense, deleteExpense, getExpenseSummary };
+export {
+  createExpense,
+  getExpenses,
+  getExpenseById,
+  updateExpense,
+  deleteExpense,
+  getExpenseSummary,
+};

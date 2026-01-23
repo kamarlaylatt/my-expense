@@ -58,16 +58,17 @@ model Category {
 }
 
 model Expense {
-  id          Int      @id @default(autoincrement())
-  amount      Decimal  @db.Decimal(10, 2)
-  description String?
-  date        DateTime @default(now())
-  categoryId  Int
-  category    Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
-  currencyId  Int
-  currency    Currency @relation(fields: [currencyId], references: [id], onDelete: Restrict)
-  userId      Int
-  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id              Int      @id @default(autoincrement())
+  amount          Decimal  @db.Decimal(10, 2)
+  usdExchangeRate Decimal  @db.Decimal(18, 8)
+  description     String?
+  date            DateTime @default(now())
+  categoryId      Int
+  category        Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  currencyId      Int
+  currency        Currency @relation(fields: [currencyId], references: [id], onDelete: Restrict)
+  userId          Int
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
 }

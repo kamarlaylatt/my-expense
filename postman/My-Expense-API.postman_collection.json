@@ -813,7 +813,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"amount\": 25.50,\n  \"description\": \"Lunch at restaurant\",\n  \"date\": \"2025-11-28\",\n  \"categoryId\": {{categoryId}},\n  \"currencyId\": {{currencyId}}\n}",
+              "raw": "{\n  \"amount\": 25.50,\n  \"usdExchangeRate\": 1.08,\n  \"description\": \"Lunch at restaurant\",\n  \"date\": \"2025-11-28\",\n  \"categoryId\": {{categoryId}},\n  \"currencyId\": {{currencyId}}\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -825,7 +825,7 @@
               "host": ["{{baseUrl}}"],
               "path": ["api", "expenses"]
             },
-            "description": "Create a new expense.\n\n**Required fields:**\n- `amount`: Expense amount (positive number)\n- `categoryId`: ID of the category\n\n**Optional fields:**\n- `description`: Expense description\n- `date`: Date of the expense (defaults to current date)\n- `currencyId`: ID of the currency"
+            "description": "Create a new expense.\n\n**Required fields:**\n- `amount`: Expense amount (positive number)\n- `categoryId`: ID of the category\n- `currencyId`: ID of the currency\n\n**Optional fields:**\n- `usdExchangeRate`: Exchange rate at time of expense (defaults to currency's current rate)\n- `description`: Expense description\n- `date`: Date of the expense (defaults to current date)\n\n> **Note:** The `usdExchangeRate` field stores the exchange rate at the time the expense is created. This preserves historical accuracy even if the currency's exchange rate changes later."
           },
           "response": [],
           "event": [
@@ -1136,14 +1136,14 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"amount\": 30.00,\n  \"description\": \"Updated lunch expense\",\n  \"date\": \"2025-11-28\",\n  \"currencyId\": {{currencyId}}\n}"
+              "raw": "{\n  \"amount\": 30.00,\n  \"usdExchangeRate\": 1.09,\n  \"description\": \"Updated lunch expense\",\n  \"date\": \"2025-11-28\",\n  \"categoryId\": {{categoryId}},\n  \"currencyId\": {{currencyId}}\n}"
             },
             "url": {
               "raw": "{{baseUrl}}/api/expenses/{{expenseId}}",
               "host": ["{{baseUrl}}"],
               "path": ["api", "expenses", "{{expenseId}}"]
             },
-            "description": "Update an existing expense.\n\n**Optional fields:**\n- `amount`: Expense amount\n- `description`: Expense description\n- `date`: Date of the expense\n- `categoryId`: Category ID\n- `currencyId`: Currency ID (set to null to remove)"
+            "description": "Update an existing expense.\n\n**Optional fields:**\n- `amount`: Expense amount\n- `usdExchangeRate`: Exchange rate (allows overriding historical rate)\n- `description`: Expense description\n- `date`: Date of the expense\n- `categoryId`: Category ID\n- `currencyId`: Currency ID (if provided without usdExchangeRate, uses new currency's current rate)"
           },
           "response": [],
           "event": [

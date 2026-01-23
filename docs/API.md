@@ -718,13 +718,16 @@ All expense endpoints require authentication.
 
 **Request Body:**
 
-| Field       | Type   | Required | Description                                                  |
-| ----------- | ------ | -------- | ------------------------------------------------------------ |
-| amount      | number | Yes      | Expense amount (positive, max 99999999.99)                   |
-| description | string | No       | Description (max 500 characters)                             |
-| date        | string | No       | ISO 8601 date or YYYY-MM-DD format. Defaults to current date |
-| categoryId  | number | Yes      | ID of an existing category                                   |
-| currencyId  | number | Yes      | ID of an existing currency                                   |
+| Field           | Type   | Required | Description                                                                  |
+| --------------- | ------ | -------- | ---------------------------------------------------------------------------- |
+| amount          | number | Yes      | Expense amount (positive, max 99999999.99)                                   |
+| usdExchangeRate | number | No       | Exchange rate at time of expense (defaults to currency's current rate)       |
+| description     | string | No       | Description (max 500 characters)                                             |
+| date            | string | No       | ISO 8601 date or YYYY-MM-DD format. Defaults to current date                |
+| categoryId      | number | Yes      | ID of an existing category                                                   |
+| currencyId      | number | Yes      | ID of an existing currency                                                   |
+
+> **Note:** The `usdExchangeRate` field stores the exchange rate at the time the expense is created. This preserves historical accuracy even if the currency's exchange rate changes later. If not provided, it defaults to the currency's current exchange rate.
 
 **Example Request:**
 
@@ -734,6 +737,7 @@ curl -X POST http://localhost:3000/api/expenses \
   -H "Authorization: Bearer <your_token>" \
   -d '{
     "amount": 25.50,
+    "usdExchangeRate": 1.08,
     "description": "Lunch at restaurant",
     "date": "2025-11-29",
     "categoryId": 1,
@@ -751,6 +755,7 @@ curl -X POST http://localhost:3000/api/expenses \
     "expense": {
       "id": 1,
       "amount": "25.50",
+      "usdExchangeRate": "1.08000000",
       "description": "Lunch at restaurant",
       "date": "2025-11-29T00:00:00.000Z",
       "categoryId": 1,
@@ -806,6 +811,7 @@ curl -X GET "http://localhost:3000/api/expenses?page=1&limit=10&categoryId=1&sta
       {
         "id": 1,
         "amount": "25.50",
+        "usdExchangeRate": "1.08000000",
         "description": "Lunch at restaurant",
         "date": "2025-11-29T00:00:00.000Z",
         "categoryId": 1,
@@ -875,6 +881,7 @@ curl -X GET http://localhost:3000/api/expenses/1 \
     "expense": {
       "id": 1,
       "amount": "25.50",
+      "usdExchangeRate": "1.08000000",
       "description": "Lunch at restaurant",
       "date": "2025-11-29T00:00:00.000Z",
       "categoryId": 1,
@@ -905,13 +912,16 @@ curl -X GET http://localhost:3000/api/expenses/1 \
 
 **Request Body (all fields optional):**
 
-| Field       | Type           | Description     |
-| ----------- | -------------- | --------------- |
-| amount      | number         | New amount      |
-| description | string or null | New description |
-| date        | string         | New date        |
-| categoryId  | number         | New category ID |
-| currencyId  | number         | New currency ID |
+| Field           | Type           | Description                                                                              |
+| --------------- | -------------- | ---------------------------------------------------------------------------------------- |
+| amount          | number         | New amount                                                                               |
+| usdExchangeRate | number or null | New exchange rate (allows overriding historical rate or updating when currency changes)  |
+| description     | string or null | New description                                                                          |
+| date            | string         | New date                                                                                 |
+| categoryId      | number         | New category ID                                                                          |
+| currencyId      | number         | New currency ID (if provided without usdExchangeRate, uses new currency's current rate)  |
+
+> **Note:** When changing `currencyId`, the `usdExchangeRate` will default to the new currency's current rate unless explicitly provided.
 
 **Example Request:**
 
@@ -921,6 +931,7 @@ curl -X PUT http://localhost:3000/api/expenses/1 \
   -H "Authorization: Bearer <your_token>" \
   -d '{
     "amount": 30.00,
+    "usdExchangeRate": 1.09,
     "description": "Updated - Dinner at restaurant"
   }'
 ```
@@ -935,6 +946,7 @@ curl -X PUT http://localhost:3000/api/expenses/1 \
     "expense": {
       "id": 1,
       "amount": "30.00",
+      "usdExchangeRate": "1.09000000",
       "description": "Updated - Dinner at restaurant",
       "date": "2025-11-29T00:00:00.000Z",
       "categoryId": 1,
@@ -1150,17 +1162,18 @@ curl -X GET "http://localhost:3000/api/expenses/summary?startDate=2025-11-01&end
 
 ### Expense
 
-| Field       | Type     | Description                                      |
-| ----------- | -------- | ------------------------------------------------ |
-| id          | integer  | Unique identifier                                |
-| amount      | decimal  | Expense amount (max 10 digits, 2 decimal places) |
-| description | string   | Optional description                             |
-| date        | datetime | Expense date                                     |
-| categoryId  | integer  | Associated category ID                           |
-| currencyId  | integer  | Associated currency ID                           |
-| userId      | integer  | Owner's user ID                                  |
-| createdAt   | datetime | Creation timestamp                               |
-| updatedAt   | datetime | Last update timestamp                            |
+| Field           | Type     | Description                                                      |
+| --------------- | -------- | ---------------------------------------------------------------- |
+| id              | integer  | Unique identifier                                                |
+| amount          | decimal  | Expense amount (max 10 digits, 2 decimal places)                 |
+| usdExchangeRate | decimal  | Exchange rate at time of expense (stored for historical accuracy) |
+| description     | string   | Optional description                                             |
+| date            | datetime | Expense date                                                     |
+| categoryId      | integer  | Associated category ID                                           |
+| currencyId      | integer  | Associated currency ID                                           |
+| userId          | integer  | Owner's user ID                                                  |
+| createdAt       | datetime | Creation timestamp                                               |
+| updatedAt       | datetime | Last update timestamp                                            |
 
 ---
 
@@ -1277,6 +1290,7 @@ async function createExpense(data: {
   amount: number;
   categoryId: number;
   currencyId: number;
+  usdExchangeRate?: number;
   description?: string;
   date?: string;
 }) {
@@ -1299,6 +1313,7 @@ import { useState, useEffect } from "react";
 interface Expense {
   id: number;
   amount: string;
+  usdExchangeRate: string;
   description: string | null;
   date: string;
   category: { id: number; name: string; color: string | null };

@@ -39,7 +39,7 @@ The application runs on port 3000 by default (configurable via `PORT` environmen
 - **User**: Authentication (email/password or Google OAuth), supports linking OAuth to existing accounts
 - **Category**: Expense categorization with colors (cascade delete with expenses)
 - **Currency**: Multi-currency with USD exchange rates (cascade delete with expenses)
-- **Expense**: Core tracking with date, amount, category, and currency (restrict delete if currency in use)
+- **Expense**: Core tracking with date, amount, category, currency, and **historical USD exchange rate** (restrict delete if currency in use)
 
 ### Authentication
 - JWT tokens with 7-day expiration (`JWT_EXPIRES_IN`)
@@ -71,6 +71,8 @@ All responses follow consistent structure:
 **Date handling**: Date queries include the entire day (end date set to 23:59:59).
 
 **Expense filtering**: Supports `categoryId`, `startDate`, `endDate`, `page`, `limit` query params.
+
+**Historical exchange rates**: Each expense stores its own `usdExchangeRate` at creation time. This preserves historical accuracy when currency rates change. When creating an expense, the rate defaults to the currency's current rate but can be overridden. When updating an expense and changing `currencyId`, the rate defaults to the new currency's current rate unless explicitly provided.
 
 **Cascading deletes**: Deleting a category or currency deletes all associated expenses. Currency deletion is restricted if expenses exist.
 
